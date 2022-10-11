@@ -1,0 +1,67 @@
+############## Code level changes ##############
+./movies-app/client/src/api/index.js
+
+const api = axios.create({
+    baseURL: 'http://EC2_IP:3000/api',
+})
+
+./movies-app/server/db/index.js
+.connect('mongodb://mongo:27017/cinema', { useNewUrlParser: true })
+
+############## AWS EC2 Open Ports Required ##############
+3000 and 8000
+
+############## Client Dockerfile ##############
+
+FROM node:10
+
+COPY . .
+# Installs all node packages
+RUN npm install
+# Finally runs the application
+CMD [ "npm", "start" ]
+
+############## Server Dockerfile ##############
+
+FROM node:10
+COPY . .
+RUN CI=true
+# Installs all node packages
+RUN npm install
+# Finally runs the application
+CMD [ "node", "index.js" ]
+
+
+############## Compose File ##############
+services:
+  client:
+    build: ./client
+    container_name: client
+    ports:
+      - "8000:8000"
+  server:
+    build: ./server
+    container_name: server
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+  mongo:
+    image : mongo
+    container_name: mongodb
+    healthcheck:
+      test:
+      - CMD
+      - mongo
+      - --eval
+      - "db.adminCommand('ping')"
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - /home/ubuntu/mongodb/database:/data/db
